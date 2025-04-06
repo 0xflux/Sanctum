@@ -293,7 +293,7 @@ impl<'a> StubAddresses<'a> {
 /// 1) Overwrite a syscall stub we wish to hook with NOPs
 /// 2) Replace the starting bytes of that memory with a jmp to our EDR DLL function callback
 /// 3) Write the jmp instruction
-#[no_mangle]
+/// #[no_mangle]
 fn patch_ntdll(addresses: &StubAddresses) {
     // Iterate over each item in the BTreeMap, and for each, hook the syscall stub. 
     // We use a BTreeMap so we can have a predictive ordering to the order in which
