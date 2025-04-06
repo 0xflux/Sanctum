@@ -80,7 +80,7 @@ struct DeviceContext {
 
 /// DriverEntry is required to start the driver, and acts as the main entrypoint
 /// for our driver.
-#[export_name = "DriverEntry"] // WDF expects a symbol with the name DriverEntry
+#[unsafe(export_name = "DriverEntry")] // WDF expects a symbol with the name DriverEntry
 pub unsafe extern "system" fn driver_entry(
     driver: &mut DRIVER_OBJECT,
     registry_path: PCUNICODE_STRING,

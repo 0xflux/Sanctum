@@ -213,7 +213,7 @@ pub union ProcessLoggingInformation {
     pub flags: u32,
 }
 
-extern "system" {
+unsafe extern "system" {
     fn ZwSetInformationProcess(
         ProcessHandle: HANDLE,
         ProcessInformationClass: u32,
