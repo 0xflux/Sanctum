@@ -6,7 +6,7 @@ authors = ["you"]
 license = ""
 repository = ""
 default-run = "app"
-edition = "2021"
+edition = "2024"
 
 [build-dependencies]
 tauri-build = { version = "2.0.3", features = [] }

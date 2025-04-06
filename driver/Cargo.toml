@@ -1,7 +1,7 @@
 [package]
 name = "sanctum"
 version = "0.0.2"
-edition = "2021"
+edition = "2024"
 build = "build.rs"
 
 [package.metadata.wdk.driver-model]
