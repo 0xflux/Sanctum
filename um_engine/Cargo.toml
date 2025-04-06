@@ -1,3 +1,5 @@
+cargo-features = ["edition2024"]
+
 [package]
 name = "um_engine"
 version = "0.0.3"
