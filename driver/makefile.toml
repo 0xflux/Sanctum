@@ -11,3 +11,14 @@ load_script = '''
 
 wdk_build::cargo_make::load_rust_driver_makefile()?
 '''
+
+[tasks.fix-inf-encoding]
+command = "powershell"
+args = [
+  "-NoProfile",
+  "-Command",
+  "$infPath = Join-Path '${CARGO_MAKE_WORKING_DIRECTORY}' 'target\\debug\\sanctum.inf'; $content = Get-Content $infPath -Raw; [System.IO.File]::WriteAllText($infPath, $content, [System.Text.Encoding]::Unicode)"
+]
+
+[tasks.infverif]
+dependencies = ["fix-inf-encoding"]
