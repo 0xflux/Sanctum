@@ -1,5 +1,6 @@
 [build]
 rustflags = [
-  "-C",
-  "target-feature=+crt-static",
+  "-C", "target-feature=+crt-static",
+  # This is redundant as im in a workspace.. Added to the parent
+  "--cfg", 'driver_model__driver_type="WDM"'
 ]

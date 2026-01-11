@@ -285,11 +285,17 @@ extern "C" fn image_load_callback(
 
     // SAFETY: Pointers validated above
     let image_info = unsafe { *image_info };
-    let image_name_string = get_image_name(image_name);
+    let Some(image_name_string) = get_image_name(image_name) else {
+        println!("[sanctum] [-] No image name");
+        return;
+    };
     let process_name = get_process_name();
     let pid = pid as u32;
 
+    //
+    // PROCESS MONITORING SECTION
     // Gate-keep what processes we are monitoring
+    //
     if !(process_name.contains("otepad.e") || process_name.contains("alware.e")) {
         return;
     }
@@ -355,14 +361,13 @@ fn block_until_sanctum_loaded(image_name_string: &String, pid: u32) {
 
 /// Gets the image name of the process for which the image is being loaded, provided by the
 /// callback routine (we convert to a rust String).
-fn get_image_name(image_name: *mut UNICODE_STRING) -> String {
+fn get_image_name(image_name: *mut UNICODE_STRING) -> Option<String> {
     if image_name.is_null() {
-        // todo proper error
-        return String::new();
+        return None;
     }
 
     let image_name = unsafe { *image_name };
 
     let name_slice = slice_from_raw_parts(image_name.Buffer, (image_name.Length / 2) as usize);
-    String::from_utf16_lossy(unsafe { &*name_slice }).to_lowercase()
+    Some(String::from_utf16_lossy(unsafe { &*name_slice }).to_lowercase())
 }

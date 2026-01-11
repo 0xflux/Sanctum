@@ -9,25 +9,25 @@ use core::{
 };
 
 use alloc::{
+    borrow::{Cow, ToOwned},
     format,
     string::{String, ToString},
     vec,
     vec::Vec,
 };
 use shared_no_std::constants::SanctumVersion;
-use wdk::println;
+use wdk::{nt_success, println};
 use wdk_sys::{
-    _EPROCESS, _KPROCESS, _KTHREAD, _LARGE_INTEGER,
+    _EPROCESS, _KTHREAD, _LARGE_INTEGER,
     _MODE::KernelMode,
-    DRIVER_OBJECT, FALSE, FILE_APPEND_DATA, FILE_ATTRIBUTE_NORMAL, FILE_OPEN_IF, FILE_SHARE_READ,
-    FILE_SHARE_WRITE, FILE_SYNCHRONOUS_IO_NONALERT, GENERIC_WRITE, HANDLE, IO_STATUS_BLOCK,
-    LARGE_INTEGER, LIST_ENTRY, OBJ_CASE_INSENSITIVE, OBJ_KERNEL_HANDLE, OBJECT_ATTRIBUTES,
-    PASSIVE_LEVEL, PETHREAD, PHANDLE, POBJECT_ATTRIBUTES, PROCESS_ALL_ACCESS, PVOID, PsProcessType,
-    STATUS_SUCCESS, STRING, ULONG, UNICODE_STRING,
+    FALSE, FILE_APPEND_DATA, FILE_ATTRIBUTE_NORMAL, FILE_OPEN_IF, FILE_SYNCHRONOUS_IO_NONALERT,
+    HANDLE, IO_STATUS_BLOCK, LARGE_INTEGER, LIST_ENTRY, OBJ_CASE_INSENSITIVE, OBJ_KERNEL_HANDLE,
+    OBJECT_ATTRIBUTES, PASSIVE_LEVEL, PETHREAD, PHANDLE, PROCESS_ALL_ACCESS, PVOID, PsProcessType,
+    PsThreadType, STATUS_SUCCESS, STRING, THREAD_ALL_ACCESS, ULONG, UNICODE_STRING,
     ntddk::{
-        IoThreadToProcess, KeGetCurrentIrql, MmIsAddressValid, ObReferenceObjectByHandle,
-        ObfDereferenceObject, PsGetProcessId, RtlInitUnicodeString, RtlUnicodeStringToAnsiString,
-        ZwClose, ZwCreateFile, ZwWriteFile,
+        IoThreadToProcess, KeGetCurrentIrql, MmGetSystemRoutineAddress, ObOpenObjectByPointer,
+        ObReferenceObjectByHandle, ObfDereferenceObject, PsGetProcessId, RtlInitUnicodeString,
+        RtlUnicodeStringToAnsiString, ZwClose, ZwCreateFile, ZwWriteFile,
     },
 };
 
@@ -35,7 +35,7 @@ use crate::{
     DRIVER_MESSAGES,
     ffi::{
         IMAGE_DOS_HEADER, IMAGE_EXPORT_DIRECTORY, IMAGE_NT_HEADERS64, InitializeObjectAttributes,
-        PsGetProcessImageFileName,
+        PsGetProcessImageFileName, ZwGetNextProcess, ZwGetNextThread,
     },
 };
 
@@ -597,4 +597,199 @@ pub fn duration_to_large_int(dur: Duration) -> _LARGE_INTEGER {
     LARGE_INTEGER {
         QuadPart: -((dur.as_nanos() / 100) as i64),
     }
+}
+
+/// Iterator over all active processes in the system
+#[derive(Default)]
+pub struct ProcessIterator {
+    current: HANDLE,
+    handles: Vec<HANDLE>,
+}
+
+impl ProcessIterator {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+impl Iterator for ProcessIterator {
+    type Item = HANDLE;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let mut next_proc: HANDLE = null_mut();
+
+        let result = unsafe {
+            ZwGetNextProcess(
+                self.current,
+                PROCESS_ALL_ACCESS,
+                OBJ_KERNEL_HANDLE,
+                0,
+                &mut next_proc,
+            )
+        };
+
+        if result != 0 || self.current == next_proc {
+            return None;
+        }
+
+        self.current = next_proc;
+        self.handles.push(self.current);
+        Some(self.current)
+    }
+}
+
+impl Drop for ProcessIterator {
+    fn drop(&mut self) {
+        for handle in &self.handles {
+            let _ = unsafe { ZwClose(*handle) };
+        }
+    }
+}
+
+/// Iterator over all threads in a specific process
+#[derive(Default)]
+pub struct ThreadIterator {
+    process: HANDLE,
+    current: HANDLE,
+    handles: Vec<HANDLE>,
+}
+
+impl ThreadIterator {
+    pub fn new(process: HANDLE) -> Self {
+        Self {
+            process: process,
+            current: null_mut(),
+            handles: Vec::new(),
+        }
+    }
+}
+
+impl Iterator for ThreadIterator {
+    // Opaque pointer for an ETHREAD which is not defined :(
+    type Item = *mut c_void;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let mut next_thread: HANDLE = null_mut();
+
+        let result = unsafe {
+            ZwGetNextThread(
+                self.process,
+                self.current,
+                THREAD_ALL_ACCESS,
+                OBJ_KERNEL_HANDLE,
+                0,
+                &mut next_thread,
+            )
+        };
+
+        if result != 0 || self.current == next_thread {
+            return None;
+        }
+
+        self.current = next_thread;
+        self.handles.push(self.current);
+
+        let mut pe_thread = null_mut();
+        let status = unsafe {
+            ObReferenceObjectByHandle(
+                self.current,
+                THREAD_ALL_ACCESS,
+                *PsThreadType,
+                KernelMode as _,
+                &mut pe_thread,
+                null_mut(),
+            )
+        };
+
+        if status == 0 && !pe_thread.is_null() {
+            return Some(pe_thread);
+        } else {
+            None
+        }
+    }
+}
+
+impl Drop for ThreadIterator {
+    fn drop(&mut self) {
+        for handle in &self.handles {
+            let _ = unsafe { ZwClose(*handle) };
+        }
+    }
+}
+
+/// Iterator that yields all threads across all processes
+#[derive(Default)]
+pub struct AllThreadsIterator {
+    process_iter: ProcessIterator,
+    current_thread_iter: Option<ThreadIterator>,
+}
+
+impl AllThreadsIterator {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+impl Iterator for AllThreadsIterator {
+    type Item = *mut c_void; // ETHREAD
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            // Try the current process
+            if let Some(ref mut thread_iter) = self.current_thread_iter {
+                if let Some(thread) = thread_iter.next() {
+                    return Some(thread);
+                }
+            }
+
+            // Try get a next process
+            match self.process_iter.next() {
+                Some(p) => {
+                    self.current_thread_iter = Some(ThreadIterator::new(p));
+                }
+                None => return None,
+            }
+        }
+    }
+}
+
+pub fn lookup_fn_ptr(fn_name: &str) -> Option<usize> {
+    let mut function_name_unicode = UNICODE_STRING::default();
+    let string_wide: Vec<u16> = fn_name.encode_utf16().collect();
+
+    unsafe {
+        RtlInitUnicodeString(&mut function_name_unicode, string_wide.as_ptr());
+    }
+
+    let function_address =
+        unsafe { MmGetSystemRoutineAddress(&mut function_name_unicode) } as usize;
+
+    if function_address == 0 {
+        None
+    } else {
+        Some(function_address)
+    }
+}
+
+pub fn ethread_to_handle(pe_thread: *mut c_void) -> Option<HANDLE> {
+    let mut h_thread = null_mut();
+
+    let status = unsafe {
+        ObOpenObjectByPointer(
+            pe_thread,
+            OBJ_KERNEL_HANDLE,
+            null_mut(),
+            THREAD_ALL_ACCESS,
+            *PsThreadType,
+            KernelMode as _,
+            &mut h_thread,
+        )
+    };
+
+    if !nt_success(status) {
+        println!("[sanctum] [-] Failed to open thread. Status: {status:#X}");
+        return None;
+    }
+
+    Some(h_thread)
 }

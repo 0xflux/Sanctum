@@ -425,7 +425,7 @@ pub static SYSCALL_NUMBER: LazyLock<BTreeMap<&'static str, u32>> = LazyLock::new
     }
 
     if syscall_num_repo.len() != NT_FUNC_NAMES.len() {
-        panic!(
+        println!(
             "[-] Could not resolve all required SSN's. {:?}",
             syscall_num_repo
         );

