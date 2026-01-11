@@ -5,5 +5,6 @@ pub mod process_monitor;
 pub mod registry;
 pub mod syscall_processing;
 pub mod threads;
+pub mod veh_monitor;
 // pub mod malphas_cloak;
 // pub mod filesystem;

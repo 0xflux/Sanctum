@@ -76,7 +76,10 @@ mod utils;
 use wdk_alloc::WdkAllocator;
 
 use crate::{
-    core::process_monitor::{MONITORED_FN_PTRS, set_monitored_dll_fn_ptrs},
+    core::{
+        process_monitor::{MONITORED_FN_PTRS, set_monitored_dll_fn_ptrs},
+        veh_monitor::search_for_amsi_veh_squared,
+    },
     device_comms::{ioctl_failed_to_inject_dll, ioctl_process_finished_sanc_dll_load},
 };
 #[global_allocator]
@@ -209,6 +212,8 @@ pub unsafe extern "C" fn configure_driver(
         "Starting Sanctum driver... Version: {}",
         VERSION_DRIVER
     ));
+
+    search_for_amsi_veh_squared();
 
     //
     // Configure the strings required for symbolic links and naming

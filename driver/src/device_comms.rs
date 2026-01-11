@@ -53,6 +53,10 @@ impl DriverMessagesWithMutex {
     /// This function will wait for an acquisition of the spin lock to continue and will block
     /// until that point.
     pub fn add_message_to_queue(&mut self, data: String) {
+        if data.is_empty() {
+            return;
+        }
+
         let irql = unsafe { KeGetCurrentIrql() };
         if irql > APC_LEVEL as u8 {
             println!("[sanctum] [-] IRQL is above APC_LEVEL: {}", irql);
