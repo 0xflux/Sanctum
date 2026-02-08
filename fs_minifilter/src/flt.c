@@ -22,7 +22,7 @@ CONST FLT_OPERATION_REGISTRATION g_callbacks[] =
 
 PFLT_FILTER g_mini_flt_handle = NULL;
 
-const FLT_REGISTRATION g_filterRegistration = {
+const FLT_REGISTRATION g_filter_registration = {
     sizeof(FLT_REGISTRATION),
     FLT_REGISTRATION_VERSION,
     0,

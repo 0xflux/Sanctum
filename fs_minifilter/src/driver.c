@@ -15,7 +15,7 @@ NTSTATUS DriverEntry(
 	KdPrintEx((DPFLTR_IHVDRIVER_ID, DPFLTR_INFO_LEVEL, "[i] Starting file system minifilter..!\n"));
 	NTSTATUS status = FltRegisterFilter(
 		driver_object,
-		&f_filter_registration,
+		&g_filter_registration,
 		&g_mini_flt_handle
 	);
 
