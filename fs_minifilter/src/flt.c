@@ -185,6 +185,18 @@ FLT_POSTOP_CALLBACK_STATUS FLTAPI PostOperationSetInformation(
     PUNICODE_STRING thread_image_path = NULL;
     PFLT_FILE_NAME_INFORMATION name_info = NULL;
 
+    //
+    // Only filter for now on rename events in this handler
+    //
+    FILE_INFORMATION_CLASS info_class = data->Iopb->Parameters.SetFileInformation.FileInformationClass;
+    switch (info_class) {
+    case FileRenameInformation:
+    case FileRenameInformationEx:
+        break;
+    default:
+        goto post_complete;
+    }
+
     if (!UnicodeContainsLiteral(
         &data->Iopb->TargetFileObject->FileName,
         L"scil",
