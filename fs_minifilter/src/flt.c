@@ -49,7 +49,7 @@ BOOLEAN IsFileExtKnownRansomware(PUNICODE_STRING input) {
     if (input->Length == 0 || input->Buffer == NULL) return FALSE;
 
     size_t input_num_chars = input->Length / sizeof(WCHAR);
-    for (int i = 0; i < RTL_NUMBER_OF(KNOWN_RANSOMWARE_FILE_EXTS); ++i) {
+    for (size_t i = 0; i < RTL_NUMBER_OF(KNOWN_RANSOMWARE_FILE_EXTS); ++i) {
         //
         // Safety checks
         //
@@ -65,7 +65,7 @@ BOOLEAN IsFileExtKnownRansomware(PUNICODE_STRING input) {
         size_t start = input_num_chars - num_chars_ransom_ext;
 
 
-        for (int j = 0; j < num_chars_ransom_ext; ++j) {
+        for (size_t j = 0; j < num_chars_ransom_ext; ++j) {
             size_t idx = start + (size_t)j;
 
             if (input->Buffer[idx] != KNOWN_RANSOMWARE_FILE_EXTS[i][j]) {
@@ -118,6 +118,7 @@ FLT_POSTOP_CALLBACK_STATUS FLTAPI PostOperationCreate(
     UNREFERENCED_PARAMETER(flags);
 
     PUNICODE_STRING image = NULL;
+    ACCESS_MASK access_mask = data->Iopb->Parameters.Create.SecurityContext->DesiredAccess;
 
     // For now we only care about things in the /scil/ dir for testing (noise reduction)
     if (!UnicodeContainsLiteral(
@@ -132,7 +133,7 @@ FLT_POSTOP_CALLBACK_STATUS FLTAPI PostOperationCreate(
     if (!NT_SUCCESS(LookupImageFromThread(data->Thread, &image))) goto post_complete;
     int process_pid = HandleToLong(PsGetProcessId(IoThreadToProcess(data->Thread)));
 
-    if (data->Iopb->TargetFileObject->WriteAccess) {
+    if (access_mask & (FILE_WRITE_DATA | FILE_APPEND_DATA | FILE_WRITE_ATTRIBUTES | FILE_WRITE_EA | DELETE)) {
         // TODO we will send telemetry at this point to the subscriber - whether
         // that is the Sanctum driver or is in usermode.
         DbgPrint(
