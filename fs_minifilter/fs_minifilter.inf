@@ -1,0 +1,58 @@
+; fs_minifilter.inf
+
+[Version]
+Signature   = "$WINDOWS NT$"
+Class       = "ActivityMonitor"
+ClassGuid   = {b86dff51-a31e-4bac-b3cf-e8cfe75c9fc2}
+Provider    = %ManufacturerName%
+DriverVer   = 02/08/2026,1.0.0.0
+CatalogFile = fs_minifilter.cat
+PnpLockdown = 1
+
+[DestinationDirs]
+DefaultDestDir = 12
+
+[SourceDisksNames]
+1 = %DiskName%,,,""
+
+[SourceDisksFiles]
+fs_minifilter.sys = 1,,
+
+; -------- Primitive-driver style install --------
+[DefaultInstall.NTamd64]
+CopyFiles = DriverCopy
+
+[DriverCopy]
+fs_minifilter.sys
+
+[DefaultInstall.NTamd64.Services]
+AddService = fs_minifilter,, fs_minifilter.Service
+
+; -------- ServiceInstall --------
+[fs_minifilter.Service]
+DisplayName    = %ServiceName%
+Description    = %ServiceDescription%
+ServiceBinary  = %12%\fs_minifilter.sys
+ServiceType    = 2 ; SERVICE_FILE_SYSTEM_DRIVER
+StartType      = 3 ; DEMAND_START
+ErrorControl   = 1
+LoadOrderGroup = "FSFilter Activity Monitor"
+Dependencies   = FltMgr
+AddReg         = fs_minifilter.AddReg
+
+; -------- Registry --------
+[fs_minifilter.AddReg]
+HKR,"Parameters","SupportedFeatures",0x00010001,0x3
+HKR,"Parameters\\Instances","DefaultInstance",0x00000000,%Instance1Name%
+HKR,"Parameters\\Instances\\%Instance1Name%","Altitude",0x00000000,%Instance1Altitude%
+HKR,"Parameters\\Instances\\%Instance1Name%","Flags",0x00010001,0
+
+[Strings]
+ManufacturerName    = "Flux"
+DiskName            = "fs_minifilter Installation Disk"
+
+ServiceName         = "fs_minifilter"
+ServiceDescription  = "Sanctum FS minifilter"
+
+Instance1Name       = "fs_minifilter Instance"
+Instance1Altitude   = "370030"

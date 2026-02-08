@@ -788,7 +788,7 @@ dependencies = [
 
 [[package]]
 name = "wdk-mutex"
-version = "1.3.0"
+version = "1.3.2"
 dependencies = [
  "wdk",
  "wdk-alloc",
