@@ -7,3 +7,5 @@ driver/.vscode/settings.json
 *.mp4
 .DS_Store
 malphas_cloak.rs
+/fs_minifilter/x64/*
+/fs_minifilter/.vs/*
