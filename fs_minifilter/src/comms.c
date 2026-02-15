@@ -2,7 +2,14 @@
 #include "globals.h"
 
 #define FLT_MAX_CONNECTIONS 1
-#define MAX_MESSAGE 256
+#define MAX_FIELD_BYTES 1024
+
+typedef struct DriverMessage {
+	int path_len;
+	char path[MAX_FIELD_BYTES];
+	int message_len;
+	char message[MAX_FIELD_BYTES];
+} DriverMessage;
 
 NTSTATUS InitComms(PFLT_FILTER filter) {
 
@@ -76,12 +83,10 @@ VOID FltDisconnectCallback(PVOID ConnectionCookie)
 	}
 }
 
-typedef struct DriverMessage {
-	int len;
-	char buf[MAX_MESSAGE];
-} DriverMessage;
-
-NTSTATUS SendTelemetry() {
+NTSTATUS SendTelemetry(
+	PUNICODE_STRING path,
+	char* message // MUST be null terminated on input, or a NULL POINTER
+) {
 
 	/**
 	* TODO: 
@@ -114,14 +119,25 @@ NTSTATUS SendTelemetry() {
 		goto disallow_dispatch;
 	}
 
-	char* my_string = "hello\0";
-	if (strlen(my_string) > MAX_MESSAGE) {
+	size_t message_len = (message) ? strlen(message) : 0;
+
+	if (message_len > MAX_FIELD_BYTES || path->Length > MAX_FIELD_BYTES) {
 		goto disallow_dispatch;
 	}
 
+	// Copy the path UNICODE_STRING into the buffer
 	DriverMessage driver_message = {0};
-	driver_message.len = (int)strlen(my_string) + 1;
-	RtlCopyMemory(driver_message.buf, my_string, driver_message.len);
+	driver_message.path_len = path->Length; // in bytes
+	RtlCopyMemory(driver_message.path, path->Buffer, driver_message.path_len);
+
+	// Same for any message, if present. Null pointer checks done above
+	if (message_len >= 1) {
+		driver_message.message_len = (int)message_len + 1; // in bytes, +1 for null terminator which we will keep
+		RtlCopyMemory(driver_message.message, message, driver_message.message_len);
+	}
+	else {
+		driver_message.message_len = 0;
+	}
 
 	ULONG reply_len = 0;
 	LARGE_INTEGER timeout = { 0 };
@@ -136,6 +152,7 @@ NTSTATUS SendTelemetry() {
 		&reply_len,
 		&timeout
 	);
+
 	InterlockedDecrement(&g_inflight_sends);
 
 	return status;

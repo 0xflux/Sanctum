@@ -17,4 +17,4 @@ NTSTATUS FltConnectCallback(
 	PVOID* ConnectionPortCookie
 );
 VOID FltDisconnectCallback(PVOID ConnectionCookie);
-NTSTATUS SendTelemetry();
+NTSTATUS SendTelemetry(PUNICODE_STRING,char*);
