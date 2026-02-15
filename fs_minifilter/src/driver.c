@@ -1,4 +1,6 @@
 #include "flt.h"
+#include "comms.h"
+#include "globals.h"
 
 #define FLT_TAG 'xulF'
 
@@ -16,7 +18,7 @@ NTSTATUS DriverEntry(
 	NTSTATUS status = FltRegisterFilter(
 		driver_object,
 		&g_filter_registration,
-		&g_mini_flt_handle
+		&g_filter
 	);
 
 	if (!NT_SUCCESS(status)) {
@@ -29,12 +31,17 @@ NTSTATUS DriverEntry(
 	//
 	// Start the minifilter
 	//
-	status = FltStartFiltering(g_mini_flt_handle);
+	status = FltStartFiltering(g_filter);
 	if (!NT_SUCCESS(status)) {
 		KdPrintEx((DPFLTR_IHVDRIVER_ID, DPFLTR_INFO_LEVEL, "[-] Failed to start filtering. %#x!\n", status));
-		FltUnregisterFilter(g_mini_flt_handle);
+		FltUnregisterFilter(g_filter);
 		return status;
 	}
+
+	//
+	// Initialise the device comms
+	//
+	status = InitComms(g_filter);
 
 	return status;
 }

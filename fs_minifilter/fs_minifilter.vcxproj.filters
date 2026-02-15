@@ -33,12 +33,24 @@
     <ClCompile Include="src\string_utils.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\comms.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\globals.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\flt.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\string_utils.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\comms.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\globals.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

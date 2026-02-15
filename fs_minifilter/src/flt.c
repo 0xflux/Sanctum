@@ -1,5 +1,7 @@
 #include "flt.h"
 #include "string_utils.h"
+#include "comms.h"
+#include "globals.h"
 
 CONST FLT_OPERATION_REGISTRATION g_callbacks[] =
 {
@@ -19,8 +21,6 @@ CONST FLT_OPERATION_REGISTRATION g_callbacks[] =
 
     { IRP_MJ_OPERATION_END }
 };
-
-PFLT_FILTER g_mini_flt_handle = NULL;
 
 const FLT_REGISTRATION g_filter_registration = {
     sizeof(FLT_REGISTRATION),
@@ -117,6 +117,13 @@ FLT_POSTOP_CALLBACK_STATUS FLTAPI PostOperationCreate(
     UNREFERENCED_PARAMETER(completion_ctx);
     UNREFERENCED_PARAMETER(flags);
 
+    InterlockedIncrement(&g_inflight_flt_callbacks);
+    if (InterlockedCompareExchange(&g_unloading, 0, 0) != 0) {
+        InterlockedDecrement(&g_inflight_flt_callbacks);
+        return FLT_POSTOP_FINISHED_PROCESSING;
+    }
+
+
     PUNICODE_STRING image = NULL;
     ACCESS_MASK access_mask = data->Iopb->Parameters.Create.SecurityContext->DesiredAccess;
 
@@ -134,6 +141,7 @@ FLT_POSTOP_CALLBACK_STATUS FLTAPI PostOperationCreate(
     int process_pid = HandleToLong(PsGetProcessId(IoThreadToProcess(data->Thread)));
 
     if (access_mask & (FILE_WRITE_DATA | FILE_APPEND_DATA | FILE_WRITE_ATTRIBUTES | FILE_WRITE_EA | DELETE)) {
+        SendTelemetry();
         // TODO we will send telemetry at this point to the subscriber - whether
         // that is the Sanctum driver or is in usermode.
         DbgPrint(
@@ -149,6 +157,7 @@ post_complete:
         ExFreePool(image);
     }
 
+    InterlockedDecrement(&g_inflight_flt_callbacks);
     return FLT_POSTOP_FINISHED_PROCESSING;
 }
 
@@ -157,6 +166,11 @@ FLT_PREOP_CALLBACK_STATUS FLTAPI PreOperationCreate(PFLT_CALLBACK_DATA data, PCF
     UNREFERENCED_PARAMETER(completion_ctx);
     UNREFERENCED_PARAMETER(flt_obj);
     UNREFERENCED_PARAMETER(data);
+
+    if (InterlockedCompareExchange(&g_unloading, 0, 0) != 0) {
+        return FLT_PREOP_COMPLETE;
+    }
+
 
     return FLT_PREOP_SUCCESS_WITH_CALLBACK;
 }
@@ -169,6 +183,10 @@ FLT_PREOP_CALLBACK_STATUS FLTAPI PreOperationSetInformation(
     UNREFERENCED_PARAMETER(completion_ctx);
     UNREFERENCED_PARAMETER(flt_objects);
     UNREFERENCED_PARAMETER(data);
+
+    if (InterlockedCompareExchange(&g_unloading, 0, 0) != 0) {
+        return FLT_PREOP_COMPLETE;
+    }
     
     return FLT_PREOP_SUCCESS_WITH_CALLBACK;
 }
@@ -182,6 +200,13 @@ FLT_POSTOP_CALLBACK_STATUS FLTAPI PostOperationSetInformation(
     UNREFERENCED_PARAMETER(flt_objects);
     UNREFERENCED_PARAMETER(completion_ctx);
     UNREFERENCED_PARAMETER(flags);
+
+    InterlockedIncrement(&g_inflight_flt_callbacks);
+    if (InterlockedCompareExchange(&g_unloading, 0, 0) != 0) {
+        InterlockedDecrement(&g_inflight_flt_callbacks);
+        return FLT_POSTOP_FINISHED_PROCESSING;
+    }
+
 
     PUNICODE_STRING thread_image_path = NULL;
     PFLT_FILE_NAME_INFORMATION name_info = NULL;
@@ -244,6 +269,7 @@ post_complete:
         FltReleaseFileNameInformation(name_info);
     }
 
+    InterlockedDecrement(&g_inflight_flt_callbacks);
     return FLT_POSTOP_FINISHED_PROCESSING;
 }
 
@@ -258,10 +284,46 @@ NTSTATUS FLTAPI InstanceFilterUnloadCallback(FLT_FILTER_UNLOAD_FLAGS flags)
 {
     UNREFERENCED_PARAMETER(flags);
 
-    if (NULL != g_mini_flt_handle)
-    {
-        FltUnregisterFilter(g_mini_flt_handle);
+    //
+    // Stop new sends from happening and other IO events. This operation will set the bit as well
+    // as checking if it is on already from the return value.
+    //
+    if (InterlockedOr(&g_unloading, 1) != 0) return STATUS_SUCCESS;
+    
+    //
+    // prevent new connects
+    //
+    if (g_server_port) {
+        FltCloseCommunicationPort(g_server_port);
+        InterlockedExchangePointer(&g_server_port, NULL);
     }
+
+    //
+    // Wait for any pending sends to complete before the driver unloads
+    //
+
+    LARGE_INTEGER delay;
+    delay.QuadPart = -10 * 1000 * 10; // 10ms
+
+    for (;;) {
+        if (InterlockedCompareExchange(&g_inflight_sends, 0, 0) == 0)
+            break;
+        KeDelayExecutionThread(KernelMode, FALSE, &delay);
+    }
+
+    for (;;) {
+        if (InterlockedCompareExchange(&g_inflight_flt_callbacks, 0, 0) == 0)
+            break;
+        KeDelayExecutionThread(KernelMode, FALSE, &delay);
+    }
+
+    //
+    // disconnect clients and filter driver
+    //
+    if (g_filter && g_client_port) FltCloseClientPort(g_filter, &g_client_port);
+    if (g_filter) FltUnregisterFilter(g_filter);
+
+    DbgPrint("[+] FS filter driver unloaded.\n");
 
     return STATUS_SUCCESS;
 }

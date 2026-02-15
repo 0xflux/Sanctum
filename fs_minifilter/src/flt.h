@@ -46,11 +46,3 @@ FLT_POSTOP_CALLBACK_STATUS FLTAPI PostOperationSetInformation(
 	PVOID completion_ctx,
 	FLT_POST_OPERATION_FLAGS flags
 );
-
-//
-// GLOABLS
-// 
-
-extern PFLT_FILTER g_mini_flt_handle;
-extern CONST FLT_OPERATION_REGISTRATION g_callbacks[];
-extern const FLT_REGISTRATION g_filter_registration;

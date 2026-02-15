@@ -137,12 +137,16 @@
     <FilesToPackage Include="$(TargetPath)" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\comms.c" />
     <ClCompile Include="src\driver.c" />
     <ClCompile Include="src\flt.c" />
+    <ClCompile Include="src\globals.c" />
     <ClCompile Include="src\string_utils.c" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\comms.h" />
     <ClInclude Include="src\flt.h" />
+    <ClInclude Include="src\globals.h" />
     <ClInclude Include="src\string_utils.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
