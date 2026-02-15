@@ -10,6 +10,7 @@ typedef struct DriverMessage {
 	int message_len;
 	char message[MAX_FIELD_BYTES];
 	InterceptedEventType event_type;
+	int pid;
 } DriverMessage;
 
 NTSTATUS InitComms(PFLT_FILTER filter) {
@@ -79,15 +80,15 @@ VOID FltDisconnectCallback(PVOID ConnectionCookie)
 	UNREFERENCED_PARAMETER(ConnectionCookie);
 	if (g_client_port) {
 		FltCloseClientPort(g_filter, &g_client_port);
-		DbgPrint("[i] Client port closed from termination routine.\n");
-		g_client_port = NULL;
+		InterlockedExchangePointer(&g_client_port, NULL);
 	}
 }
 
 NTSTATUS SendTelemetry(
 	PUNICODE_STRING path,
 	InterceptedEventType event_type,
-	char* message // MUST be null terminated on input, or a NULL POINTER
+	char* message, // MUST be null terminated on input, or a NULL POINTER
+	int pid
 ) {
 
 	/**
@@ -129,6 +130,7 @@ NTSTATUS SendTelemetry(
 
 	DriverMessage driver_message = {0};
 	driver_message.event_type = event_type;
+	driver_message.pid = pid;
 
 	// Copy the path UNICODE_STRING into the buffer
 	driver_message.path_len = path->Length; // in bytes

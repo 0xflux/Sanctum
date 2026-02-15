@@ -23,4 +23,9 @@ NTSTATUS FltConnectCallback(
 	PVOID* ConnectionPortCookie
 );
 VOID FltDisconnectCallback(PVOID ConnectionCookie);
-NTSTATUS SendTelemetry(PUNICODE_STRING, InterceptedEventType, char*);
+NTSTATUS SendTelemetry(
+	PUNICODE_STRING path,
+	InterceptedEventType event_type,
+	char* message, // MUST be null terminated on input, or a NULL POINTER
+	int pid
+);

@@ -132,15 +132,7 @@ FLT_POSTOP_CALLBACK_STATUS FLTAPI PostOperationCreate(
     int process_pid = HandleToLong(PsGetProcessId(IoThreadToProcess(data->Thread)));
 
     if (access_mask & (FILE_WRITE_DATA | FILE_APPEND_DATA | FILE_WRITE_ATTRIBUTES | FILE_WRITE_EA | DELETE)) {
-        SendTelemetry(&data->Iopb->TargetFileObject->FileName, WriteAccessFileEvent, NULL);
-        // TODO we will send telemetry at this point to the subscriber - whether
-        // that is the Sanctum driver or is in usermode.
-        DbgPrint(
-            "[i] Filter WRITE access on file:\n\tFile name=%wZ\n\tBy pid=%d\n\tBy process=%wZ\n\n",
-            &data->Iopb->TargetFileObject->FileName,
-            process_pid,
-            image
-        );
+        SendTelemetry(&data->Iopb->TargetFileObject->FileName, WriteAccessFileEvent, NULL, process_pid);
     }
     
 post_complete:
@@ -241,16 +233,9 @@ FLT_POSTOP_CALLBACK_STATUS FLTAPI PostOperationSetInformation(
         SendTelemetry(
             &name_info->Name,
             SuspiciousExtention,
-            "Possible ransomware detected, file ext matches that of lockbit.\0"
+            "Possible ransomware detected, file ext matches that of lockbit.\0",
+            process_pid
         );
-
-        DbgPrint(
-            "[!!!!!] Possible ransomware detected targeting file: %wZ\n\t\tPid: %d, Process: %wZ\n\n",
-            &name_info->Name,
-            process_pid,
-            thread_image_path
-        );
-
     }
 
 post_complete:
