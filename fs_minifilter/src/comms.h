@@ -4,6 +4,12 @@
 
 #define FILTER_PORT_NAME L"\\SanctumFilterPort"
 
+typedef enum InterceptedEventType {
+	WriteAccessFileEvent,
+	SetInformationEvent,
+	SuspiciousExtention,
+} InterceptedEventType;
+
 //
 // FUNCTIONS
 //
@@ -17,4 +23,4 @@ NTSTATUS FltConnectCallback(
 	PVOID* ConnectionPortCookie
 );
 VOID FltDisconnectCallback(PVOID ConnectionCookie);
-NTSTATUS SendTelemetry(PUNICODE_STRING,char*);
+NTSTATUS SendTelemetry(PUNICODE_STRING, InterceptedEventType, char*);

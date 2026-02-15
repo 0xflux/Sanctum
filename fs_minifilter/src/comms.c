@@ -9,6 +9,7 @@ typedef struct DriverMessage {
 	char path[MAX_FIELD_BYTES];
 	int message_len;
 	char message[MAX_FIELD_BYTES];
+	InterceptedEventType event_type;
 } DriverMessage;
 
 NTSTATUS InitComms(PFLT_FILTER filter) {
@@ -85,6 +86,7 @@ VOID FltDisconnectCallback(PVOID ConnectionCookie)
 
 NTSTATUS SendTelemetry(
 	PUNICODE_STRING path,
+	InterceptedEventType event_type,
 	char* message // MUST be null terminated on input, or a NULL POINTER
 ) {
 
@@ -125,8 +127,10 @@ NTSTATUS SendTelemetry(
 		goto disallow_dispatch;
 	}
 
-	// Copy the path UNICODE_STRING into the buffer
 	DriverMessage driver_message = {0};
+	driver_message.event_type = event_type;
+
+	// Copy the path UNICODE_STRING into the buffer
 	driver_message.path_len = path->Length; // in bytes
 	RtlCopyMemory(driver_message.path, path->Buffer, driver_message.path_len);
 
@@ -142,6 +146,12 @@ NTSTATUS SendTelemetry(
 	ULONG reply_len = 0;
 	LARGE_INTEGER timeout = { 0 };
 	timeout.QuadPart = -10000000LL; // 1 second timeout
+
+	/*size_t message_sz =
+		sizeof(int) * 2 + 
+		sizeof(event_type) +
+		driver_message.message_len + 
+		driver_message.path_len;*/
 
 	NTSTATUS status = FltSendMessage(
 		g_filter,
@@ -159,5 +169,6 @@ NTSTATUS SendTelemetry(
 
 disallow_dispatch:
 	InterlockedDecrement(&g_inflight_sends);
+	DbgPrint("[-] Message disallowed");
 	return STATUS_PORT_DISCONNECTED;
 }
