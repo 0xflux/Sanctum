@@ -127,15 +127,6 @@ FLT_POSTOP_CALLBACK_STATUS FLTAPI PostOperationCreate(
     PUNICODE_STRING image = NULL;
     ACCESS_MASK access_mask = data->Iopb->Parameters.Create.SecurityContext->DesiredAccess;
 
-    // For now we only care about things in the /scil/ dir for testing (noise reduction)
-    if (!UnicodeContainsLiteral(
-        &data->Iopb->TargetFileObject->FileName,
-        L"scil",
-        TRUE
-    )) {
-        goto post_complete;
-    }
-
     // Get the full image path from the thread making the fs access
     if (!NT_SUCCESS(LookupImageFromThread(data->Thread, &image))) goto post_complete;
     int process_pid = HandleToLong(PsGetProcessId(IoThreadToProcess(data->Thread)));
@@ -223,14 +214,6 @@ FLT_POSTOP_CALLBACK_STATUS FLTAPI PostOperationSetInformation(
         goto post_complete;
     }
 
-    if (!UnicodeContainsLiteral(
-        &data->Iopb->TargetFileObject->FileName,
-        L"scil",
-        TRUE
-    )) {
-        goto post_complete;
-    }
-
     NTSTATUS status = FltGetFileNameInformation(
         data,
         FLT_FILE_NAME_NORMALIZED | FLT_FILE_NAME_QUERY_DEFAULT,
@@ -277,13 +260,6 @@ post_complete:
 
     InterlockedDecrement(&g_inflight_flt_callbacks);
     return FLT_POSTOP_FINISHED_PROCESSING;
-}
-
-BOOLEAN ContainsScil(PUNICODE_STRING name)
-{
-    UNICODE_STRING expr;
-    RtlInitUnicodeString(&expr, L"*s*");
-    return FsRtlIsNameInExpression(&expr, name, TRUE, NULL);
 }
 
 NTSTATUS FLTAPI InstanceFilterUnloadCallback(FLT_FILTER_UNLOAD_FLAGS flags)
